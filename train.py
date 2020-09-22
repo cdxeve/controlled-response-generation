@@ -88,7 +88,7 @@ len(input_tensor_train), len(target_tensor_train),len(news_tensor_train), len(in
 
 
 BUFFER_SIZE = len(input_tensor_train)
-BATCH_SIZE =128
+BATCH_SIZE =config.batch_size
 N_BATCH = BUFFER_SIZE//BATCH_SIZE
 embedding_dim = 256
 topic_num=64
