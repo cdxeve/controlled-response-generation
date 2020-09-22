@@ -671,7 +671,7 @@ def test(start,end,turn_num=1):
         print('第',i+1,'个句子')
         lists.append(one_example_test(i,input_list[i],kw_list[i],turn_num))
     print(lists)
-    save_doc(lists,'Test_results/'+dataset_name+'/pred.txt')
+    save_doc(lists,'results/'+dataset_name+'/pred_1.txt')
     return lists
 
 test(config.evaluate_start,config.evaluate_end)
