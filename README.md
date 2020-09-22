@@ -2,11 +2,15 @@
 Explicitly controlling style and content of response generation
 
 #Train 
+
     dataset=AmazonQA
-#forward
+    
+    #forward
+
     python train.py --dataset ${dataset} --cuda_device 0 --epoch 80 --batch_size 128 --mode forward
 
-#backward
+    #backward
+
     python train.py --dataset ${dataset} --cuda_device 0 --epoch 80 --batch_size 128 --mode backward
 
 #Generate style-controlled response
