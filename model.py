@@ -27,10 +27,6 @@ def gru(units):
                                recurrent_activation='sigmoid', 
                                recurrent_initializer='glorot_uniform')
 
-
-# In[20]:
-
-
 class Encoder(tf.keras.Model):
     def __init__(self, vocab_size, embedding_dim, enc_units, batch_sz):
         super(Encoder, self).__init__()
@@ -47,31 +43,14 @@ class Encoder(tf.keras.Model):
     def initialize_hidden_state(self):
         return tf.zeros((self.batch_sz, self.enc_units))
 
-
-# In[63]:
-
-
 class style_model(tf.keras.Model):
     def __init__(self, topic_num):
-        super(Topic_model, self).__init__()
-        #self.batch_sz = batch_sz
-        #self.enc_units = enc_units
-        #self.embedding = tf.keras.layers.Embedding(vocab_size, embedding_dim)
-        #self.lang=input_lang
+        super(style_model, self).__init__()
         self.dense=tf.keras.layers.Dense(topic_num,bias_initializer=tf.keras.initializers.constant(0.0), dtype='float64')
     def call(self, x):
-        #print(x)
-        
-        dense_user = self.dense(x)
-        #embedded_user = tf.nn.embedding_lookup(user2td,user)[:,1,:]
-        
-        #embedded_softmax_expand = tf.expand_dims(embedded_softmax,1)
-        #embedded_softmax_tile = tf.tile(embedded_softmax_expand,[1,max_length_news,1])       
+        #dense_user.shape ==(batch_size, style_num)
+        dense_user = self.dense(x)    
         return dense_user
-
-
-# In[64]:
-
 
 class Decoder(tf.keras.Model):
     def __init__(self, vocab_size, embedding_dim, dec_units, batch_sz):
@@ -81,13 +60,13 @@ class Decoder(tf.keras.Model):
         self.embedding = tf.keras.layers.Embedding(vocab_size, embedding_dim)
         self.gru = gru(self.dec_units)
         self.fc = tf.keras.layers.Dense(vocab_size)
-        
+        self.vocab_sz=vocab_size
         # used for attention
         self.W1 = tf.keras.layers.Dense(self.dec_units)
         self.W2 = tf.keras.layers.Dense(self.dec_units)
         self.V = tf.keras.layers.Dense(1)
         
-    def call(self, x, hidden, enc_output):
+    def call(self, x, hidden, enc_output,dense_user,t):
         # enc_output shape == (batch_size, max_length, hidden_size)
         
         # hidden shape == (batch_size, hidden size)
@@ -115,15 +94,34 @@ class Decoder(tf.keras.Model):
         # passing the concatenated vector to the GRU
         output, state = self.gru(x)
         
-        # output shape == (batch_size * 1, hidden_size)
-        output = tf.reshape(output, (-1, output.shape[2]))
+        ###########################################adaptive cue gate################################
+        #state shape == (batch_size,hidden_size)
+        #enc_output shape ==(batch_size, max_length, hidden_size)
+        #context_vector shape ==(batch_size, hidden_size)
+        
+        concate=tf.concat([state,enc_output[:,:,t],context_vector],axis=1)
+        
+        #concate shape == (batch_size, 1+max_length+1, hidden_size)
+        
+        #MLP
+        #MLP=tf.keras.layers.Denise(self.dec_units)(concate)
+        beta=tf.keras.layers.Dense(1,activation='sigmoid')(concate) 
+        #beta shape == (batch_size, 1)
+        #print("beta.shape:",beta)
+        
+        #dense_user.shape ==(batch_size, topic_num)
+        alpha=beta*dense_user   
+        #alpha.shape ==(batch_size, topic_num)
+        
+        output=tf.concat([state,context_vector,alpha],axis=1)
+        # output shape == (batch_size * 1, hidden_size*2+topic_num)
+        
+        #output = tf.reshape(output, (-1, output.shape[2]))
         
         # output shape == (batch_size * 1, vocab)
         x = self.fc(output)
         
-        return x, state, attention_weights
+        return x, state, beta
         
     def initialize_hidden_state(self):
         return tf.zeros((self.batch_sz, self.dec_units))
-
-
