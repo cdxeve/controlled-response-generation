@@ -1,16 +1,5 @@
 #!/usr/bin/env python
 # coding: utf-8
-
-# In[1]:
-
-
-#!/usr/bin/env python
-# coding: utf-8
-
-
-# In[1]:
-
-
 from __future__ import absolute_import, division, print_function
 
 # Import TensorFlow >= 1.10 and enable eager execution
@@ -35,12 +24,6 @@ os.environ["CUDA_VISIBLE_DEVICES"] = config.cuda_device
 #print (device_lib.list_local_devices())
 import random
 
-
-
-
-# In[2]:
-
-
 import linecache
 import pickle
 
@@ -63,25 +46,12 @@ num_examples = 10000
 target_tensor, news_tensor, targ_lang,news_lang, max_length_targ,max_length_news, = load_dataset(path_to_file, num_examples,'forward')
 r_target_tensor, r_news_tensor,r_targ_lang,r_news_lang, max_length_targ,max_length_news, = load_dataset(path_to_file, num_examples,'backward')
 
-
-
-# In[13]:
-
-
 vocab_news_size = len(news_lang.word2idx)
 vocab_tar_size = len(targ_lang.word2idx)
 print(max_length_targ,max_length_news,vocab_news_size,vocab_tar_size)
 
-
-# In[14]:
-
-#读取
-list_file = open('../style-RG/w_d/'+dataset_name+'/w_d_list.pickle','rb')
+list_file = open('data/'+dataset_name+'/w_d_list.pickle','rb')
 w_d_list = pickle.load(list_file)
-
-
-# In[10]:
-
 
 # Creating training and validation sets using an 80-20 split
 input_tensor_train, input_tensor_val, target_tensor_train, target_tensor_val,news_tensor_train,news_tensor_val = train_test_split(w_d_list, target_tensor,news_tensor, test_size=0.2,random_state=1)
@@ -91,28 +61,20 @@ r_input_tensor_train, r_input_tensor_val, r_target_tensor_train, r_target_tensor
 # Show length
 len(input_tensor_train), len(target_tensor_train),len(news_tensor_train), len(input_tensor_val), len(target_tensor_val),  len(news_tensor_val)
 
-
-# In[17]:
-
-
-# In[4]:
-
-
-
 BUFFER_SIZE = len(input_tensor_train)
 BATCH_SIZE =cong.batch_size
 N_BATCH = BUFFER_SIZE//BATCH_SIZE
 embedding_dim = 256
-topic_num=64
+style_num=64
 units = 512
 
 encoder1 = Encoder(vocab_news_size, embedding_dim, units, BATCH_SIZE)
-encoder2=style_model( topic_num)
-decoder = Decoder(vocab_tar_size, embedding_dim, units+topic_num, BATCH_SIZE)
+encoder2=style_model(style_num)
+decoder = Decoder(vocab_tar_size, embedding_dim, units+style_num, BATCH_SIZE)
 
 r_encoder1 = Encoder(vocab_news_size, embedding_dim, units, BATCH_SIZE)
-r_encoder2=style_model( topic_num)
-r_decoder = Decoder(vocab_tar_size, embedding_dim, units+topic_num, BATCH_SIZE)
+r_encoder2=style_model(style_num)
+r_decoder = Decoder(vocab_tar_size, embedding_dim, units+style_num, BATCH_SIZE)
 
 
 # ## Define the optimizer and the loss function
@@ -135,7 +97,7 @@ optimizer = tf.train.AdamOptimizer(learning_rate=0.001)
 # In[67]:
 
 
-checkpoint_dir = '../style-RG/checkpoints/'+dataset_name         
+checkpoint_dir = './_checkpoints/'+dataset_name         
 checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
 checkpoint = tf.train.Checkpoint(optimizer=optimizer,
                                  encoder1=encoder1,
@@ -145,7 +107,7 @@ checkpoint = tf.train.Checkpoint(optimizer=optimizer,
 checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir))
 
 
-r_checkpoint_dir = '../style-RG/r_checkpoints/'+dataset_name         
+r_checkpoint_dir = './r_checkpoints/'+dataset_name         
 r_checkpoint_prefix = os.path.join(r_checkpoint_dir, "ckpt")
 r_checkpoint = tf.train.Checkpoint(r_optimizer=optimizer,
                                  r_encoder1=encoder1,
@@ -169,6 +131,7 @@ r_comment_test=r_target_tensor_val[:test_num]
 
 
 @jit
+@jit
 def get_enc(index):
     #######正向部分
     inp1=news_test[index]
@@ -179,14 +142,9 @@ def get_enc(index):
     
     hidden1 = [tf.zeros((1, units))]
     
-    enc1_output, enc1_hidden = encoder1(inp1, hidden1)
-    embedded_user= encoder2(inp2)
-    embedded_softmax = embedded_user
-    embedded_softmax_expand = tf.expand_dims(embedded_softmax,1)
-    embedded_softmax_tile = tf.tile(embedded_softmax_expand,[1,max_length_news,1])
-
-    enc_output = tf.keras.backend.concatenate([enc1_output,tf.to_float(embedded_softmax_tile)], axis=-1 )
-    enc_hidden= tf.keras.backend.concatenate([enc1_hidden,tf.to_float(embedded_softmax)], axis=-1 )
+    enc_output, enc_hidden = encoder1(inp1, hidden1)
+    dense_user= encoder2(inp2)
+    
     #######逆向部分
     r_inp1=r_news_test[index]
     r_inp1=tf.convert_to_tensor([r_inp1])
@@ -196,30 +154,15 @@ def get_enc(index):
     
     r_hidden1 = [tf.zeros((1, units))]
 
-    r_enc1_output, r_enc1_hidden = r_encoder1(r_inp1, r_hidden1)
-    r_embedded_user= r_encoder2(r_inp2)
-    r_embedded_softmax = r_embedded_user
-    r_embedded_softmax_expand = tf.expand_dims(r_embedded_softmax,1)
-    r_embedded_softmax_tile = tf.tile(r_embedded_softmax_expand,[1,max_length_news,1])
-
-    r_enc_output = tf.keras.backend.concatenate([r_enc1_output,tf.to_float(r_embedded_softmax_tile)], axis=-1 )
-
-    r_enc_hidden= tf.keras.backend.concatenate([r_enc1_hidden,tf.to_float(r_embedded_softmax)], axis=-1 )
+    r_enc_output, r_enc_hidden = r_encoder1(r_inp1, r_hidden1)
+    r_dense_user= r_encoder2(r_inp2)
+    
     #print("encoder1.get_weights(),r_encoder1.get_weights",encoder1.get_weights(),r_encoder1.get_weights())
 
     
-    return enc_output, enc_hidden, r_enc_output,r_enc_hidden
+    return enc_output, enc_hidden,dense_user, r_enc_output,r_enc_hidden,r_dense_user
 
-
-
-
-
-
-
-
-# In[7]:
-
-
+#######生成content-contrlled response
 from pickle import load
 
 import copy
@@ -247,7 +190,7 @@ def load_doc(filename):
 import string
 
 
-input_path='../style-RG/results/'+dataset_name+'/pred.txt'
+input_path='results/'+dataset_name+'/pred.txt'
 input_list=get_list_from_txtfile(input_path)
 input_list=[preprocess_user(inp) for inp in input_list]
 question_list=get_list_from_txtfile('data/'+dataset_name+'/question_test.txt')
@@ -273,14 +216,7 @@ for i in range(len(input_list)):
     #if len(kws)<1:
      #   kws.append("yes")
     kw_list.append(kws)
-print(kw_list[:10],input_list[:10])
-
-
-
-# In[8]:
-
-
-# In[40]:
+#print(kw_list[:10],input_list[:10])
 
 @jit
 def delete_duplicate(list_):
@@ -309,9 +245,6 @@ def removeDuplicates(input_list):#用于删除单个句子中的重复信息
         return removed_list    
 
 
-# In[25]:
-
-
 import heapq
 class sentence(object):
     def __init__(self,index,input_list,kw_list,hard_input,hard_constraints=[],
@@ -334,7 +267,7 @@ class sentence(object):
         self.hard_constraints=[targ_lang.word2idx[word] for word in hard_constraints]
         self.hard_input=removeDuplicates([targ_lang.word2idx[word] for word in hard_input.split()])
         #print(self.hard_constraints)
-        self.enc_output,self.enc_hidden,self.r_enc_output,self.r_enc_hidden=get_enc(index)
+        self.enc_output,self.enc_hidden,self.dense_user,self.r_enc_output,self.r_enc_hidden,self.r_dense_user=get_enc(index)
 
     
     def _preselect(self,test,decoder):
@@ -350,11 +283,11 @@ class sentence(object):
         if decoder==decoder:
             for t in range(0,len(test)):
                 dec_input = tf.expand_dims([test[t]], 0)
-                predictions, dec_hidden, attention_weights = decoder(dec_input, dec_hidden, self.enc_output)
+                predictions, dec_hidden, beta = decoder(dec_input, dec_hidden, self.enc_output,self.dense_user,t)
         elif decoder==r_decoder:
             for t in range(0,len(test)):
                 dec_input = tf.expand_dims([test[t]], 0)
-                predictions, dec_hidden, attention_weights = decoder(dec_input, dec_hidden, self.r_enc_output)
+                predictions, dec_hidden, beta = decoder(dec_input, dec_hidden, self.r_enc_output,self.r_dense_user,t)
         else:
             print('_preselect error')
         #predictions=tf.nn.softmax(predictions)
@@ -367,6 +300,7 @@ class sentence(object):
                 #selected_list.append(i)
         #直接得到最大的三个单词的索引
         predictions=predictions[0].numpy().tolist()
+        
         #print("predictions:",max(predictions))
         selected_list = list(map(predictions.index, heapq.nlargest(10, predictions)))
         #print("selected_word_list",selected_list)
@@ -406,14 +340,16 @@ class sentence(object):
         #encoded.insert(0,targ_lang.word2idx['<start>'])
         #encoded.append(targ_lang.word2idx['<end>'])
         seq_prob=1
+        beta_list=[]
         for t in range(0,len(encoded)):
             dec_input = tf.expand_dims([encoded[t]], 0)
-            predictions, dec_hidden, attention_weights = decoder(dec_input, dec_hidden, self.enc_output)
+            predictions, dec_hidden, beta = decoder(dec_input, dec_hidden, self.enc_output,self.dense_user,t)
             predictions=tf.nn.softmax(predictions)
             word_prob=predictions[0][encoded[t]]
             seq_prob*=word_prob
+            beta_list.append(beta)
             #print("seq_prob",seq_prob)
-        return seq_prob
+        return seq_prob,beta_list
 
 
     def _proposal(self,position,selected_list,added_list,pi_x,operation):
@@ -422,7 +358,8 @@ class sentence(object):
         pi_list=[]
         for num in selected_list:
             added_list[position]=num
-            pi_list.append(self.seq_prob(added_list))
+            seq_prob,_=self.seq_prob(added_list)
+            pi_list.append(seq_prob)
         s=sum(pi_list)
         if s==0 :
            # print('分母为0')
@@ -468,7 +405,7 @@ class sentence(object):
 
            # print([targ_lang.idx2word[idx] for idx in added_list])
             
-            pi_x1=self.seq_prob(added_list)
+            pi_x1,_=self.seq_prob(added_list)
             #accept_rate=self.p_insert*pi_x1/(self.p_delete*(pi_x+s))
             accept_rate=self.p_insert*g_list[new_index]*pi_x1/(self.p_delete*pi_x)
             if x>=min(1,accept_rate):
@@ -490,7 +427,7 @@ class sentence(object):
         #有关键词但没有被修改的句子
         original_list=copy.deepcopy(added_list)
         
-        pi_x=self.seq_prob(original_list)
+        pi_x,_=self.seq_prob(original_list)
         #print('有关键词但没有被修改的句子概率：',pi_x,'位置',position)
         if operation=='insert': 
             #先插入占位符phd            
@@ -531,19 +468,23 @@ class sentence(object):
                 #不变一定要指两次
                 bubian=copy.deepcopy(sentence)
                 ####给每一个句子在不同的位置添加关键词
-                for i in range(len(sentence)+1):                
+                _,beta_list=self.seq_prob(bubian)
+                position_list=list(map(beta_list.index, heapq.nsmallest(max(1,len(bubian)//2), beta_list)))
+                
+                for position in position_list:                
                     #print("被添加位置：",i,'关键词：',kw,tokenizer.index_word[kw])               
-                    if i<len(sentence):
-                        sentence.insert(i,kw)
-                        new.append(sentence)
-                    else:
-                        sentence.append(kw)
-                        new.append(sentence)
+                    #if position<len(sentence):
+                    sentence.pop(position)
+                    sentence.insert(position,kw)
+                    new.append(sentence)
+                    #else:
+                     #   sentence.append(kw)
+                      #  new.append(sentence)
                     sentence=copy.deepcopy(bubian)
                     
                     #添加了关键词的list.
             added_kw_list=new
-        #print(added_kw_list)
+        print(added_kw_list)
         #第二轮对添加后的进行修改
         print("语法调整。。。") 
         modified_list=[]
@@ -601,7 +542,7 @@ class sentence(object):
     
     def decide(self):
         #先保存第一个例子
-        first_prob=self.seq_prob(self.input_list)
+        first_prob,_=self.seq_prob(self.input_list)
             #print(first_prob,len(self.input_list))
         if len(self.input_list)>0:
             first_ppl=pow(first_prob,-1/len(self.input_list))
@@ -615,7 +556,7 @@ class sentence(object):
         for sentence in modified_list:
             #print(sentence)
             
-            prob=self.seq_prob(sentence)
+            prob,_=self.seq_prob(sentence)
             prob_list.append(prob)
             if len(sentence)>0:
                 ppl=pow(prob,-1/len(sentence))
@@ -654,11 +595,11 @@ def one_example_test(index,input_list,kw_list,turn_num):
         print(result_list[i-1])
         x=sentence(index,result_list[i-1],[],input_list,hard_constraints)       
         result_list.append(x.decide())
-    return result_list[0]
+    return result_list[-1]
 
 @jit
 def save_doc(lines, filename):
-    
+  
     data = '\n'.join(lines)
     file = open(filename, 'w')
     file.write(data)
@@ -666,14 +607,24 @@ def save_doc(lines, filename):
     
 @jit
 def test(start,end,turn_num=1):
+    outFile='results/'+dataset_name+'/pred_2.txt'
+    if(os.path.exists(outFile)):
+            os.remove(outFile)
+            print ('已移除')
+    else:
+            print('不存在')
     lists=[]
     for i in range(start,end):
+        fo= open(outFile,encoding='utf8',mode='a')
         print('第',i+1,'个句子')
-        lists.append(one_example_test(i,input_list[i],kw_list[i],turn_num))
-    print(lists)
-    save_doc(lists,'results/'+dataset_name+'/pred_1.txt')
+        final=one_example_test(i,input_list[i],kw_list[i],turn_num)
+        print('final',final)
+        #lists.append(one_example_test(i,input_list[i],kw_list[i],turn_num))
+        fo.write(final)
+        fo.write('\n')
+        fo.close()
+    #print(lists)
+    #save_doc(lists,'results/'+dataset_name+'/pred_1.txt')
     return lists
 
 test(config.evaluate_start,config.evaluate_end)
-
-
