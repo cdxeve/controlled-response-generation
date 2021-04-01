@@ -1,9 +1,5 @@
 #!/usr/bin/env python
 # coding: utf-8
-
-
-
-
 from __future__ import absolute_import, division, print_function
 
 # Import TensorFlow >= 1.10 and enable eager execution
@@ -91,7 +87,7 @@ BUFFER_SIZE = len(input_tensor_train)
 BATCH_SIZE =config.batch_size
 N_BATCH = BUFFER_SIZE//BATCH_SIZE
 embedding_dim = 256
-topic_num=64
+style_num=64
 units = 512
 
 dataset = tf.data.Dataset.from_tensor_slices((input_tensor_train,news_tensor_train, target_tensor_train)).shuffle(BUFFER_SIZE)
@@ -100,7 +96,7 @@ dataset = dataset.batch(BATCH_SIZE, drop_remainder=True)
 
 
 encoder1 = Encoder(vocab_news_size, embedding_dim, units, BATCH_SIZE)
-encoder2=style_model( topic_num)
+encoder2=style_model( style_num)
 decoder = Decoder(vocab_tar_size, embedding_dim, units+topic_num, BATCH_SIZE)
 
 
@@ -123,9 +119,10 @@ def loss_function(real, pred):
 # In[67]:
 
 if mode=='forward':
-    print("我在这儿")
-    checkpoint_dir = './checkpoints/'+dataset_name 
+    print("forward training")
+    checkpoint_dir = './_checkpoints/'+dataset_name 
 elif mode=='backward':
+    print("backward training")
     checkpoint_dir = './r_checkpoints/'+dataset_name 
 else:
     print('checkpoint_error')
@@ -146,26 +143,16 @@ for epoch in range(EPOCHS):
     start = time.time()
     
     hidden1 = encoder1.initialize_hidden_state()
-    #hidden2 = encoder2.initialize_hidden_state()
-    #user2td = tf.get_variable("user2td",[vocab_user_size,embedding_dim])
     total_loss = 0
     
     for (batch, (user, news, targ)) in enumerate(dataset):
         loss = 0
         #print(user)
         with tf.GradientTape() as tape:
-            enc1_output, enc1_hidden = encoder1(news, hidden1)
+            enc_output, enc_hidden = encoder1(news, hidden1)
             
-            embedded_user= encoder2(user)
-            
-            embedded_softmax = embedded_user
-            
-            embedded_softmax_expand = tf.expand_dims(embedded_softmax,1)
-            embedded_softmax_tile = tf.tile(embedded_softmax_expand,[1,max_length_news,1])
-            
-            enc_output = tf.keras.backend.concatenate([enc1_output,tf.to_float(embedded_softmax_tile)], axis=-1 )
+            dense_user= encoder2(user)
 
-            enc_hidden= tf.keras.backend.concatenate([enc1_hidden,tf.to_float(embedded_softmax)], axis=-1 )
             dec_hidden = enc_hidden
             dec_input = tf.expand_dims([targ_lang.word2idx['<start>']] * BATCH_SIZE, 1)       
             
