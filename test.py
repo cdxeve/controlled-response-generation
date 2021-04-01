@@ -87,7 +87,7 @@ dataset = dataset.batch(BATCH_SIZE, drop_remainder=True)
 
 encoder1 = Encoder(vocab_news_size, embedding_dim, units, BATCH_SIZE)
 encoder2=style_model( style_num)
-decoder = Decoder(vocab_tar_size, embedding_dim, units+topic_num, BATCH_SIZE)
+decoder = Decoder(vocab_tar_size, embedding_dim, units+style_num, BATCH_SIZE)
 
 
 
