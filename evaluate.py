@@ -77,24 +77,8 @@ r_encoder2=style_model(style_num)
 r_decoder = Decoder(vocab_tar_size, embedding_dim, units+style_num, BATCH_SIZE)
 
 
-# ## Define the optimizer and the loss function
-
-# In[66]:
-
-
-
+# Define the optimizer and the loss function
 optimizer = tf.train.AdamOptimizer(learning_rate=0.001)
-
-
-#def loss_function(real, pred):
- # mask = 1 - np.equal(real, 0)
-  #loss_ = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=real, logits=pred) * mask
-  #return tf.reduce_mean(loss_)
-
-
-# ## Checkpoints (Object-based saving)
-
-# In[67]:
 
 
 checkpoint_dir = './_checkpoints/'+dataset_name         
@@ -116,7 +100,6 @@ r_checkpoint = tf.train.Checkpoint(r_optimizer=optimizer,
 
 r_checkpoint.restore(tf.train.latest_checkpoint(r_checkpoint_dir))
 
-#print("encoder1.get_weights(),r_encoder1.get_weights",encoder1.get_weights(),r_encoder1.get_weights())
 
 test_num=1000
 user_test=input_tensor_val[:test_num]
@@ -126,14 +109,9 @@ r_user_test=r_input_tensor_val[:test_num]
 r_news_test=r_news_tensor_val[:test_num]
 r_comment_test=r_target_tensor_val[:test_num]
 
-
-# In[1]:
-
-
-@jit
 @jit
 def get_enc(index):
-    #######正向部分
+    #######forward
     inp1=news_test[index]
     inp1=tf.convert_to_tensor([inp1])
 
@@ -145,7 +123,7 @@ def get_enc(index):
     enc_output, enc_hidden = encoder1(inp1, hidden1)
     dense_user= encoder2(inp2)
     
-    #######逆向部分
+    #######backward
     r_inp1=r_news_test[index]
     r_inp1=tf.convert_to_tensor([r_inp1])
 
@@ -157,12 +135,9 @@ def get_enc(index):
     r_enc_output, r_enc_hidden = r_encoder1(r_inp1, r_hidden1)
     r_dense_user= r_encoder2(r_inp2)
     
-    #print("encoder1.get_weights(),r_encoder1.get_weights",encoder1.get_weights(),r_encoder1.get_weights())
-
-    
     return enc_output, enc_hidden,dense_user, r_enc_output,r_enc_hidden,r_dense_user
 
-#######生成content-contrlled response
+#######content-contrlled response
 from pickle import load
 
 import copy
@@ -196,27 +171,20 @@ input_list=[preprocess_user(inp) for inp in input_list]
 question_list=get_list_from_txtfile('data/'+dataset_name+'/question_test.txt')
 
 
-# In[39]:
-
-
 from random import randint,choice
 max_kw_num=1
-kw_list=[]#双层列表
+kw_list=[]
 for i in range(len(input_list)):
-    kws=[]#单层列表
-    line=preprocess_user(question_list[i]).split()#随机选定一个句子
-    x=randint(1,len(line))#随机指定抽取的关键词数
+    kws=[]
+    line=preprocess_user(question_list[i]).split()
+    x=randint(1,len(line))
     for j in range(x):
-        temp=choice(line)#随机选定一个单词
-        #if temp not in kws:#保证没有被选过
-        if temp in targ_lang.word2idx and temp not in kws and temp.lower() not in input_list[i].lower():#保证不在input并且没有被选过
+        temp=choice(line)
+        if temp in targ_lang.word2idx and temp not in kws and temp.lower() not in input_list[i].lower():
             kws.append(temp)
         if j==max_kw_num-1:
-            break#保证关键词数不过多
-    #if len(kws)<1:
-     #   kws.append("yes")
+            break
     kw_list.append(kws)
-#print(kw_list[:10],input_list[:10])
 
 @jit
 def delete_duplicate(list_):
@@ -226,18 +194,18 @@ def delete_duplicate(list_):
                     resultList.append(item)
         return resultList
 @jit
-def jaccard(model, reference):#terms_reference为源句子，terms_model为候选句子
-    grams_reference = set(reference)#去重；如果不需要就改为list
+def jaccard(model, reference):
+    grams_reference = set(reference)
     grams_model = set(model)
     temp=0
     for i in grams_reference:
         if i in grams_model:
             temp=temp+1
-    fenmu=len(grams_model)+len(grams_reference)-temp #并集
-    jaccard_coefficient=float(temp/fenmu)#交集
+    fenmu=len(grams_model)+len(grams_reference)-temp 
+    jaccard_coefficient=float(temp/fenmu)
     return jaccard_coefficient
 @jit
-def removeDuplicates(input_list):#用于删除单个句子中的重复信息
+def removeDuplicates(input_list):
         removed_list=[]
         for num in input_list:
             if num not in removed_list:
@@ -254,8 +222,7 @@ class sentence(object):
                  jaccard_threshold=0,
                  step_times=1):
         self.input_list=removeDuplicates([targ_lang.word2idx[word] for word in input_list.split()])
-        ##试试不要原句直接生成
-        #self.input_list=[]
+        
         self.kw_list=[targ_lang.word2idx[word] for word in kw_list]
         self.threshold=preselect_threshold
         self.step_times=step_times
@@ -263,10 +230,8 @@ class sentence(object):
         self.simi=jaccard_threshold
         self.p_insert=p_insert
         self.p_delete=p_delete
-        ######两个hard变量在后几轮中保证原句和关键词
         self.hard_constraints=[targ_lang.word2idx[word] for word in hard_constraints]
         self.hard_input=removeDuplicates([targ_lang.word2idx[word] for word in hard_input.split()])
-        #print(self.hard_constraints)
         self.enc_output,self.enc_hidden,self.dense_user,self.r_enc_output,self.r_enc_hidden,self.r_dense_user=get_enc(index)
 
     
@@ -278,8 +243,6 @@ class sentence(object):
             dec_hidden=self.r_enc_hidden
         else:
             print('_preselect error')
-        #test.insert(0,targ_lang.word2idx['<start>'])
-        #test.append(targ_lang.word2idx['<end>'])
         if decoder==decoder:
             for t in range(0,len(test)):
                 dec_input = tf.expand_dims([test[t]], 0)
@@ -290,15 +253,7 @@ class sentence(object):
                 predictions, dec_hidden, beta = decoder(dec_input, dec_hidden, self.r_enc_output,self.r_dense_user,t)
         else:
             print('_preselect error')
-        #predictions=tf.nn.softmax(predictions)
-        #prob_list=predictions[0]
-        #print(max(prob_list))
-        ###############把threshold的范围改了
-       # threshold=max(prob_list)
-        #for i in range(len(prob_list)):
-            #if prob_list[i]>=self.threshold:
-                #selected_list.append(i)
-        #直接得到最大的三个单词的索引
+       
         predictions=predictions[0].numpy().tolist()
         
         #print("predictions:",max(predictions))
@@ -309,25 +264,20 @@ class sentence(object):
         
     #@jit
     def preselect(self,added_kw_list,position):  
-        #print('preselect...')
-        #前向预选
+        #forward
         if position!=0:        
             test=added_kw_list[:position]
-            #print('前向预选。。。',test)
             selected_list=self._preselect(test,decoder)          
-        #后向预选
+        #backward
         if position!=len(added_kw_list)-1:                       
             r_test=added_kw_list[position+1:]
             r_test=list(reversed(r_test))
-            #print('后向预选。。。',r_test)
             r_selected_list=self._preselect(r_test,r_decoder)  
             r_selected_list=[r_targ_lang.idx2word[idx] for idx in r_selected_list]
-            r_selected_list=[targ_lang.word2idx[word] for word in r_selected_list]#转成同一种表示方式
+            r_selected_list=[targ_lang.word2idx[word] for word in r_selected_list]
         if position==0 and position==len(added_kw_list)-1:
-            #print('预选时遇到空列表')
             return []
         if position==0 and position!=len(added_kw_list)-1:
-            #print(len(added_kw_list)-1,position)
             return r_selected_list
         if position==len(added_kw_list)-1:
             return selected_list        
@@ -337,8 +287,6 @@ class sentence(object):
     def seq_prob(self,encoded):
         
         dec_hidden = self.enc_hidden
-        #encoded.insert(0,targ_lang.word2idx['<start>'])
-        #encoded.append(targ_lang.word2idx['<end>'])
         seq_prob=1
         beta_list=[]
         for t in range(0,len(encoded)):
@@ -353,7 +301,6 @@ class sentence(object):
 
 
     def _proposal(self,position,selected_list,added_list,pi_x,operation):
-        #print('_proposal')
         original_list=copy.deepcopy(added_list)
         pi_list=[]
         for num in selected_list:
@@ -362,59 +309,30 @@ class sentence(object):
             pi_list.append(seq_prob)
         s=sum(pi_list)
         if s==0 :
-           # print('分母为0')
-            #####insert和append两种情况在进入——proposal前已经加了占位符
             if operation=='insert' or operation=='append':
-            #    print('insert_reject')
                 original_list.pop(position)
             return original_list
-        #g_insert的概率
         g_list=tf.nn.softmax(pi_list)
-        #g_list=[pi/s for pi in pi_list]
         
         np.random.seed(random.randint(1, 100))
         p = np.array(g_list)
-        #print("p:",p) 
-        #print('sump:',sum(p))
-        ###判断有没有nan
-        #for i in range(len(p)):
-            
-         #   if np.isnan(p[i]):
-          #      p[i]=0
-                #selected_list.pop(i)
-           #     print('有nan')
         new_index = np.random.choice(list(range(len(selected_list))), p = p.ravel())
         
         x=random.uniform(0, 1)
         if operation=='insert' or operation=='append':
-            #print(operation,[targ_lang.idx2word[idx] for idx in added_list])
-
-
             accept_rate=self.p_delete*pi_list[new_index]/(self.p_insert*g_list[new_index]*pi_x)
-            #print('insert的接受率：',min(1,accept_rate))
             if x<min(1,accept_rate):
-                #print('insert_accept')
                 added_list[position]=selected_list[new_index]
-                #print([targ_lang.idx2word[idx] for idx in added_list])
             else:
-                #print('insert_reject')
                 added_list.pop(position)
         
         if operation=='delete':
-            #print(operation)
-
-           # print([targ_lang.idx2word[idx] for idx in added_list])
-            
             pi_x1,_=self.seq_prob(added_list)
-            #accept_rate=self.p_insert*pi_x1/(self.p_delete*(pi_x+s))
             accept_rate=self.p_insert*g_list[new_index]*pi_x1/(self.p_delete*pi_x)
             if x>=min(1,accept_rate):
-                #print('delete_reject')
                 return original_list 
             else:
-                #print('delete_accept')
                 added_list.pop(position)
-                #print([targ_lang.idx2word[idx] for idx in added_list])
         if jaccard(self.hard_input,added_list)<self.simi:
             if operation=='insert' or operation=='append':
                 original_list.pop(position)
@@ -422,30 +340,20 @@ class sentence(object):
        
         return added_list
     
-    #@jit
     def proposal(self,added_list,position,operation,):  
-        #有关键词但没有被修改的句子
         original_list=copy.deepcopy(added_list)
         
         pi_x,_=self.seq_prob(original_list)
-        #print('有关键词但没有被修改的句子概率：',pi_x,'位置',position)
         if operation=='insert': 
-            #先插入占位符phd            
             added_list.insert(position,self.phd)            
         if operation=='append':
             added_list.append(self.phd)
         if operation=='delete'and (added_list[position] in self.kw_list):
-            #print('delete_reject')
             return original_list 
-        #hard_constraints保证后几轮修改时，第0轮的关键词不会被删除
         if operation=='delete'and (added_list[position] in self.hard_constraints):
-            #print('delete_reject')
             return original_list
-        #进行预挑选
         selected_list=self.preselect(added_list,position)
 
-
-        #判断预挑选结果是否为空
         if any(selected_list):    
             selected_word_list=[targ_lang.idx2word[x] for x in selected_list]
             #print("selected_word_list",selected_word_list)
@@ -459,75 +367,50 @@ class sentence(object):
     
     #@jit
     def modify(self):
-        #第一轮添加所有关键词 
-        print("添加关键词。。")
         added_kw_list=[self.input_list]
         for kw in self.kw_list:
             new=[]
             for sentence in added_kw_list:
-                #不变一定要指两次
                 bubian=copy.deepcopy(sentence)
-                ####给每一个句子在不同的位置添加关键词
                 _,beta_list=self.seq_prob(bubian)
                 position_list=list(map(beta_list.index, heapq.nsmallest(max(1,len(bubian)//2), beta_list)))
                 
                 for position in position_list:                
-                    #print("被添加位置：",i,'关键词：',kw,tokenizer.index_word[kw])               
-                    #if position<len(sentence):
                     sentence.pop(position)
                     sentence.insert(position,kw)
                     new.append(sentence)
-                    #else:
-                     #   sentence.append(kw)
-                      #  new.append(sentence)
                     sentence=copy.deepcopy(bubian)
                     
-                    #添加了关键词的list.
             added_kw_list=new
-        print(added_kw_list)
-        #第二轮对添加后的进行修改
-        print("语法调整。。。") 
         modified_list=[]
         modified_list.extend(added_kw_list)
         step=0                      
-        #开始循环调整
         while step<self.step_times:
             step+=1
             print("step:",step)
             new_list=[]
-            #print('added_kw_list',tokenizer.sequences_to_texts(added_kw_list))
             for added_kw in added_kw_list:
                 bubian_list=copy.deepcopy(added_kw)                    
-                #接下来对这个句子进行语法调整                              
                 for position in range(len(added_kw)):
-                    #依概率抽取一个proposal 
                     np.random.seed(random.randint(1, 100))
                     
                     p = np.array([self.p_insert, self.p_delete])
                     operation = np.random.choice(['insert', 'delete'], p = p.ravel())
-                    #if position ==len(added_kw)-1:
-                    #print("操作：", operation)
-                    #进行操作
+                    
                     added_list=copy.deepcopy(bubian_list)
                     print('#######added_list:',[targ_lang.idx2word[num] for num in added_list],position)
                     new_list.append(self.proposal(added_list,position,operation))
-                    #print(tokenizer.sequences_to_texts(modified_list))
-                #到结尾处只能append
                 added_list=copy.deepcopy(bubian_list)
                 position=len(added_list)
-                #print('#######added_kw_list',added_list,position)
                 operation = np.random.choice(['append', 'delete'], p = p.ravel())
 
                 if operation=='append':
-                
-                #print("操作：", operation)
                     new_list.append(self.proposal(added_list,position,operation))
                 
                 new_list=delete_duplicate(new_list)
                 seq_list=[]
                 for new in new_list:
                     seq_list.append([targ_lang.idx2word[idx] for idx in new])
-                #print('new_list', seq_list)           
             modified_list.extend(new_list)
             added_kw_list=new_list
         modified_list=delete_duplicate(modified_list)
@@ -535,15 +418,12 @@ class sentence(object):
         print('modified_list')
         for modified in modified_list:
             print([targ_lang.idx2word[idx] for idx in modified])
-        #print(tokenizer.sequences_to_texts(modified_list))
             
         return modified_list
 
     
     def decide(self):
-        #先保存第一个例子
         first_prob,_=self.seq_prob(self.input_list)
-            #print(first_prob,len(self.input_list))
         if len(self.input_list)>0:
             first_ppl=pow(first_prob,-1/len(self.input_list))
         else:
@@ -554,8 +434,6 @@ class sentence(object):
         ppl_list=[]
         prob_list=[]
         for sentence in modified_list:
-            #print(sentence)
-            
             prob,_=self.seq_prob(sentence)
             prob_list.append(prob)
             if len(sentence)>0:
@@ -566,32 +444,21 @@ class sentence(object):
             min_index=ppl_list.index(min(ppl_list))
             max_index=prob_list.index(max(prob_list))
           
-        final=[targ_lang.idx2word[idx] for idx in modified_list[min_index]]
-        #final=tokenizer.sequences_to_texts([modified_list[max_index]])
-        #print('前一轮结果：',first_sentence,'ppl：',first_ppl,'句子概率：',first_prob)
-        #print('最终结果：',final,'ppl：',min(ppl_list),'句子概率：',prob_list[min_index])    
-        print('前一轮结果：',first_sentence,'ppl：',first_ppl)
-        print('最终结果：',final,'ppl：',min(ppl_list))  
+        final=[targ_lang.idx2word[idx] for idx in modified_list[min_index]]  
+        print('first round：',first_sentence,'ppl：',first_ppl)
+        print('final round：',final,'ppl：',min(ppl_list))  
         return " ".join(final)
             
-
-
-# In[26]:
-
-
 @jit
 def one_example_test(index,input_list,kw_list,turn_num):
-    print('###############第0轮#######')
-    #result_list中存有 【句子，困惑度，句子概率】
+    print('###############round 0#######')
     result_list=[]
-    #第0轮，有kw
     print(input_list,kw_list)
     john=sentence(index,input_list,kw_list,input_list)
     hard_constraints=kw_list
     result_list.append(john.decide())      
-    #从弟1轮开始就没有kw了
     for i in range(1,turn_num):
-        print('################第',i,'轮#############')
+        print('################the',i,'round#############')
         print(result_list[i-1])
         x=sentence(index,result_list[i-1],[],input_list,hard_constraints)       
         result_list.append(x.decide())
@@ -610,21 +477,19 @@ def test(start,end,turn_num=1):
     outFile='results/'+dataset_name+'/pred_2.txt'
     if(os.path.exists(outFile)):
             os.remove(outFile)
-            print ('已移除')
+            print ('removed')
     else:
-            print('不存在')
+            print('not existed')
     lists=[]
     for i in range(start,end):
         fo= open(outFile,encoding='utf8',mode='a')
-        print('第',i+1,'个句子')
+        print(i+1,'sentence')
         final=one_example_test(i,input_list[i],kw_list[i],turn_num)
         print('final',final)
         #lists.append(one_example_test(i,input_list[i],kw_list[i],turn_num))
         fo.write(final)
         fo.write('\n')
         fo.close()
-    #print(lists)
-    #save_doc(lists,'results/'+dataset_name+'/pred_1.txt')
     return lists
 
 test(config.evaluate_start,config.evaluate_end)
