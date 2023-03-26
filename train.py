@@ -8,8 +8,6 @@ import tensorflow.compat.v1 as tf
 tf.disable_v2_behavior()
 tf.enable_eager_execution()
 
-
-
 from sklearn.model_selection import train_test_split
 
 import unicodedata
@@ -20,9 +18,7 @@ import time
 import config 
 
 os.environ["CUDA_VISIBLE_DEVICES"] = config.cuda_device
-#print(tf.__version__)
 from tensorflow.python.client import device_lib
-#print (device_lib.list_local_devices())
 import random
 
 from preprocess import load_dataset
@@ -63,14 +59,8 @@ target_tensor, news_tensor, targ_lang,news_lang, max_length_targ,max_length_news
 vocab_news_size = len(news_lang.word2idx)
 vocab_tar_size = len(targ_lang.word2idx)
 
-# In[14]:
-
-#读取
 list_file = open('w_d/'+dataset_name+'/w_d_list.pickle','rb')
 w_d_list = pickle.load(list_file)
-
-
-# In[10]:
 
 
 # Creating training and validation sets using an 80-20 split
@@ -78,10 +68,6 @@ input_tensor_train, input_tensor_val, target_tensor_train, target_tensor_val,new
 
 # Show length
 len(input_tensor_train), len(target_tensor_train),len(news_tensor_train), len(input_tensor_val), len(target_tensor_val),  len(news_tensor_val)
-
-
-# In[17]:
-
 
 BUFFER_SIZE = len(input_tensor_train)
 BATCH_SIZE =config.batch_size
@@ -93,17 +79,9 @@ units = 512
 dataset = tf.data.Dataset.from_tensor_slices((input_tensor_train,news_tensor_train, target_tensor_train)).shuffle(BUFFER_SIZE)
 dataset = dataset.batch(BATCH_SIZE, drop_remainder=True)
 
-
-
 encoder1 = Encoder(vocab_news_size, embedding_dim, units, BATCH_SIZE)
 encoder2=style_model( style_num)
 decoder = Decoder(vocab_tar_size, embedding_dim, units+style_num, BATCH_SIZE)
-
-
-# ## Define the optimizer and the loss function
-
-
-
 
 optimizer = tf.train.AdamOptimizer(learning_rate=0.001)
 
@@ -114,9 +92,7 @@ def loss_function(real, pred):
   return tf.reduce_mean(loss_)
 
 
-# ## Checkpoints (Object-based saving)
-
-# In[67]:
+#Checkpoints (Object-based saving)
 
 if mode=='forward':
     print("forward training")
@@ -132,12 +108,6 @@ checkpoint = tf.train.Checkpoint(optimizer=optimizer,
                                  encoder2=encoder2,
                                  decoder=decoder)
 checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir))
-#print("encoder1.get_weights()",encoder1.get_weights())
-
-
-# In[69]:
-
-
 
 for epoch in range(EPOCHS):
     start = time.time()
@@ -188,7 +158,3 @@ for epoch in range(EPOCHS):
     print('Epoch {} Loss {:.4f}'.format(epoch + 1,
                                         total_loss / N_BATCH))
     print('Time taken for 1 epoch {} sec\n'.format(time.time() - start))
-
-                
-
-
