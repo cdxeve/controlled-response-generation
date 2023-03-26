@@ -1,10 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-
-# In[1]:
-
-
 from __future__ import absolute_import, division, print_function
 
 # Import TensorFlow >= 1.10 and enable eager execution
@@ -25,9 +21,6 @@ import config
 
 os.environ["CUDA_VISIBLE_DEVICES"] = config.cuda_device
 
-#print(tf.__version__)
-#from tensorflow.python.client import device_lib
-#print (device_lib.list_local_devices())
 import random
 
 from preprocess import load_dataset
@@ -48,21 +41,11 @@ path_to_file ='data/'+dataset_name+"/question_answer_user.txt"
 num_examples = 10000
 target_tensor, news_tensor, targ_lang,news_lang, max_length_targ,max_length_news, = load_dataset(path_to_file, num_examples)
 
-# In[13]:
-
-
 vocab_news_size = len(news_lang.word2idx)
 vocab_tar_size = len(targ_lang.word2idx)
 
-
-# In[14]:
-
-#读取
 list_file = open('w_d/'+dataset_name+'/w_d_list.pickle','rb')
 w_d_list = pickle.load(list_file)
-
-
-# In[10]:
 
 
 # Creating training and validation sets using an 80-20 split
@@ -70,9 +53,6 @@ input_tensor_train, input_tensor_val, target_tensor_train, target_tensor_val,new
 
 # Show length
 len(input_tensor_train), len(target_tensor_train),len(news_tensor_train), len(input_tensor_val), len(target_tensor_val),  len(news_tensor_val)
-
-
-
 
 BUFFER_SIZE = len(input_tensor_train)
 BATCH_SIZE =cong.batch_size
@@ -108,10 +88,6 @@ test_num=1000
 user_test=input_tensor_val[:test_num]
 news_test=news_tensor_val[:test_num]
 comment_test=target_tensor_val[:test_num]
-
-
-# In[1]:
-
 
 def store_results():
     pred_list=[]
@@ -157,12 +133,12 @@ ref_list=[]
 for comment in comment_test:
     ref=[]
     for idx in comment:
-        if idx>4:#小于4的是unk,pad，start，end
+        if idx>4:
             ref.append(targ_lang.idx2word[idx])
     ref_list.append(ref)
 ref_list=[' '.join(ref) for ref in ref_list]
 
-for i in range(0,2):###好像这里至少要存两遍。。。。#也有可能是忘记close了
+for i in range(0,2):
     fo_pred= open('results/'+dataset_name+'/pred.txt',encoding='utf8',mode='w')
     fo_ref= open('results/'+dataset_name+'/ref.txt',encoding='utf8',mode='w')
     for line in pred_list:
@@ -179,7 +155,3 @@ for i in range(0,2):###好像这里至少要存两遍。。。。#也有可能�
         fo_ref.write('\n')
 
     i+=1                                
-
-
-
-
