@@ -2,7 +2,6 @@ from nltk import word_tokenize, pos_tag
 from nltk.corpus import wordnet
 from nltk.stem import WordNetLemmatizer
 
-# 获取单词的词性
 def get_wordnet_pos(tag):
     if tag.startswith('J'):
         return wordnet.ADJ
@@ -18,9 +17,9 @@ def preprocess_sentence(line):
     dataSet=[]
     line=line.replace('\'','')
     line = re.sub(r"[^a-zA-Z]+", " ", line)
-    tokens = word_tokenize(line)  # 分词
+    tokens = word_tokenize(line)  
     #print(tokens)
-    tagged_sent = pos_tag(tokens)     # 获取单词词性
+    tagged_sent = pos_tag(tokens) 
 
     wnl = WordNetLemmatizer()
     for tag in tagged_sent:
@@ -35,8 +34,8 @@ def preprocess_user(line):
     dataSet=[]
     line=line.replace('\'','')
     line = re.sub(r"[^a-zA-Z]+", " ", line)
-    tokens = word_tokenize(line)  # 分词
-    tagged_sent = pos_tag(tokens)     # 获取单词词性
+    tokens = word_tokenize(line)  
+    tagged_sent = pos_tag(tokens)   
 
     wnl = WordNetLemmatizer()
     for tag in tagged_sent:
@@ -52,10 +51,6 @@ def create_dataset(path, num_examples):
     word_pairs = [[ preprocess_sentence(w) for w in re.split('\t|\t ',l)]  for l in lines[:num_examples]]
     
     return word_pairs
-
-
-# In[6]:
-
 
 class LanguageIndex():
     def __init__(self, lang):
@@ -80,12 +75,7 @@ class LanguageIndex():
 
         for word, index in self.word2idx.items():
             self.idx2word[index]=word
-    
-
-
-# In[7]:
-
-
+ 
 def max_length(tensor):
     return max(len(t) for t in tensor)
 
@@ -101,9 +91,6 @@ def load_dataset(path, num_examples):
     
     # Vectorize the input and target and news languages
     
-    # user_id
-    #user_tensor = [[user_lang.word2idx[s] for s in user.split(' ')] for com, news,user in pairs]
-    #print(user_tensor[1])
     # English sentences
     if mode=='backward':
         for news, com,user in pairs:
@@ -115,7 +102,6 @@ def load_dataset(path, num_examples):
    
     com_tensor = [[com_lang.word2idx[s] for s in com.split(' ')] for news, com,user in pairs]
     
-    #save_list(kw_tensor,'kw_tensor.pickle')
     #news sentences
     news_tensor=[[news_lang.word2idx[s] for s in news.split(' ')]for news, com,user in pairs]
     # Calculate max_length of input and output and news tensor
@@ -133,5 +119,3 @@ def load_dataset(path, num_examples):
                                                                   padding='post')
     
     return com_tensor, news_tensor,com_lang,news_lang, max_length_com, max_length_news
-
-
